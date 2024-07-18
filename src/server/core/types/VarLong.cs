@@ -1,6 +1,6 @@
 namespace sharpcraft.server.core.types;
 
-public class VarLong
+public struct VarLong
 {
     private long _value;
     private byte[] _bytes;

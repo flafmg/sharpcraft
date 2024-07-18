@@ -1,11 +1,11 @@
 namespace sharpcraft.server.core.types;
 
-public class VarInt
+public struct VarInt
 {
     private int _value;
     private byte[] _bytes;
 
-    public int value
+    public int Value
     {
         get { return _value; }
         set
@@ -92,7 +92,7 @@ public class VarInt
 
     public int GetSize()
     {
-        int value = this.value;
+        int value = this.Value;
         int size = 0;
 
         do

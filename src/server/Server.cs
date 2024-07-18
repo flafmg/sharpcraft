@@ -1,21 +1,30 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using sharpcraft.server.core.packet;
-using sharpcraft.server.core.packet.server;
+using sharpcraft.server.core.configuration;
+using sharpcraft.server.core.packet.serverbound;
 using sharpcraft.server.core.types;
+using sharpcraft.server.core.types.packet.steam;
+using sharpcraft.server.core.types.packet.stream;
+
 
 namespace sharpcraft.server;
 
-public class Server
+ public class Server
 {
-    private TcpListener tcpListener;
-    private PacketManager packetManager;
-    public bool isRunning { private set; get; }
+    private readonly TcpListener tcpListener;
+    private readonly PacketManager packetManager;
+    private readonly byte[] buffer = new byte[1024];
+    public bool isRunning { get; private set; }
 
-    public Server(string ipAdress, int port)
+    public Server()
     {
-        IPAddress ip = IPAddress.Parse(ipAdress);
+        ServerConfiguration.LoadConfig();
+        
+        string ipAddress = ServerConfiguration.ServerAddress;
+        ushort port = ServerConfiguration.ServerPort;
+
+        IPAddress ip = IPAddress.Parse(ipAddress);
         tcpListener = new TcpListener(ip, port);
         packetManager = new PacketManager();
     }
@@ -23,16 +32,29 @@ public class Server
     public void Start()
     {
         tcpListener.Start();
-        byte[] buffer = new byte[1024];
+        isRunning = true;
+        Console.WriteLine("Server started, waiting for clients...");
 
-        while (true)
+        AcceptClients();
+    }
+
+    private void AcceptClients()
+    {
+        while (isRunning)
         {
-            TcpClient client = tcpListener.AcceptTcpClient();
-            HandleClient(client, ref buffer);
+            try
+            {
+                TcpClient client = tcpListener.AcceptTcpClient();
+                Task.Run(() => HandleClient(client));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error accepting client: {ex.Message}{ex.StackTrace}");
+            }
         }
     }
 
-    public void HandleClient(TcpClient client, ref byte[] buffer)
+    private void HandleClient(TcpClient client)
     {
         NetworkStream stream = client.GetStream();
 
@@ -45,20 +67,25 @@ public class Server
                 {
                     break;
                 }
-                
-                packetManager.HandlePacket(client, buffer);
+                packetManager.HandlePacket(buffer, client);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Error handling client: " + ex.StackTrace);
+            Console.WriteLine($"Error handling client: {ex.Message}{ex.StackTrace}");
         }
         finally
         {
             stream.Close();
             client.Close();
-            PacketManager.CurrentState = State.HANDSHAKE;
+            PacketManager.CurrentPacketState = PacketState.Handshake;
         }
     }
-    
+
+    public void Stop()
+    {
+        isRunning = false;
+        tcpListener.Stop();
+        Console.WriteLine("Server stopped.");
+    }
 }

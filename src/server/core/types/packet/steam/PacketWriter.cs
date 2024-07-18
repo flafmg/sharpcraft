@@ -1,14 +1,16 @@
 using System.Text;
 using sharpcraft.server.core.types;
+using sharpcraft.server.core.types.nbt;
 
-namespace sharpcraft.server.core.packet.stream;
+namespace sharpcraft.server.core.types.packet.steam;
 
-public class PacketWritter
+public class PacketWriter
 {
     private List<byte> data;
-
-    public PacketWritter()
+    private Packet packet;
+    public PacketWriter(Packet packet)
     {
+        this.packet = packet;
         data = new List<byte>();
     }
     
@@ -43,6 +45,11 @@ public class PacketWritter
         data.Add(value);
     }
 
+    public void WriteNBT(NBT nbt)
+    {
+        WriteByteArray(nbt.ToBytes());
+    }
+
     public void WriteBoolean(bool value)
     {
         data.Add(value ? (byte)1 : (byte)0);
@@ -75,14 +82,8 @@ public class PacketWritter
         byte[] uuidBytes = uuid.ToByteArray();
         WriteByteArray(uuidBytes);
     }
-    public byte[] ToArray()
+    public void WriteToData()
     {
-        return data.ToArray();
+        packet.data = data.ToArray();
     }
-
-    public int GetSize()
-    {
-        return data.Count;
-    }
-    
 }

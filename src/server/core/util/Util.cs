@@ -20,4 +20,18 @@ public class Util
 
         return new Guid(guidBytes);
     }
+
+    //TODO: automatic resize image
+    public static string GetFavIconBase64(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return "";
+        }
+
+        byte[] imageBytes = File.ReadAllBytes(path);
+        string imageBase64 = Convert.ToBase64String(imageBytes);
+
+        return imageBase64;
+    }
 }

@@ -1,6 +1,6 @@
 namespace sharpcraft.server.core.types;
 
-public class Position
+public struct Position
 {
     private long _longValue;
     private int _x;

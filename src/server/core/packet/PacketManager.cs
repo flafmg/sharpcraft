@@ -1,47 +1,47 @@
-using System.Net.Sockets;
-using System.Text;
-using sharpcraft.server.core.packet.server;
-using sharpcraft.server.core.types;
-using sharpcraft.server.core.types.client;
 
-namespace sharpcraft.server.core.packet;
+using System.Net.Sockets;
+using sharpcraft.server.core.packet.serverbound;
+using sharpcraft.server.core.packet.serverbound.status;
+using sharpcraft.server.core.types.packet.steam;
+using static sharpcraft.server.core.types.packet.stream.PacketState;
+namespace sharpcraft.server.core.types.packet.stream;
 
 public class PacketManager
 {
-   private Dictionary<State, Dictionary<byte, Func<GenericServerPacket, ServerPacket>>> serverPackets;
-   internal static State CurrentState = State.HANDSHAKE;
+    public static PacketState CurrentPacketState = PacketState.Handshake;
+    private readonly Dictionary<PacketState, Dictionary<int, Packet>> PacketHandler;
+    public PacketManager()
+    {
+        PacketHandler = new Dictionary<PacketState, Dictionary<int, Packet>>();
+        
+        PacketHandler.Add(Handshake, new Dictionary<int, Packet>());
+        PacketHandler.Add(Status, new Dictionary<int, Packet>());
+        PacketHandler.Add(Login, new Dictionary<int, Packet>());
+        PacketHandler.Add(Transfer, new Dictionary<int, Packet>());
+        PacketHandler.Add(Play, new Dictionary<int, Packet>());
+        
+        PacketHandler[Handshake].Add(0x00, new HandshakePacket());
+        
+        PacketHandler[Status].Add(0x00, new StatusRequestPacket());
+        PacketHandler[Status].Add(0x01, new PingRequestPacket());
+    }
 
-   public PacketManager()
-   {
-      serverPackets = new Dictionary<State, Dictionary<byte, Func<GenericServerPacket, ServerPacket>>>
-      {
-         { State.HANDSHAKE, new Dictionary<byte, Func<GenericServerPacket, ServerPacket>>() },
-         { State.STATUS, new Dictionary<byte, Func<GenericServerPacket, ServerPacket>>() },
-         { State.LOGIN, new Dictionary<byte, Func<GenericServerPacket, ServerPacket>>() },
-         { State.PLAY, new Dictionary<byte, Func<GenericServerPacket, ServerPacket>>() }
-      };
-      
-      serverPackets[State.HANDSHAKE].Add(0x00, genericPacket => new HandshakePacket(genericPacket));
-      
-      serverPackets[State.STATUS].Add(0x00, packet => new MOTDRequestPacket());
-      serverPackets[State.STATUS].Add(0x01, packet => new PingRequestPacket(packet));
-      
-      serverPackets[State.LOGIN].Add(0x00, packet => new LoginStartPacket(packet));
-   }
+    public void HandlePacket(byte[] rawData, TcpClient client)
+    {
+        int packetID = GetIDFromRawData(rawData);
+        Console.WriteLine($"RECIVING ID: {packetID}, STATE: {CurrentPacketState.ToString()}");
+        
+        if (PacketHandler[CurrentPacketState].TryGetValue(packetID, out Packet packet))
+        {
+            packet.Receive(rawData);
+            packet.Resolve(client);
+        }
+    }
 
-   public void HandlePacket(TcpClient client, byte[] data)
-   {
-      GenericServerPacket gnsp = new GenericServerPacket(data);
-      Console.WriteLine($" - STATE: {CurrentState.ToString()}");
-      if (serverPackets[CurrentState].TryGetValue((byte)gnsp.id.value, out var packetHandler))
-      {
-         ServerPacket packet = packetHandler(gnsp);
-         packet.Resolve(client);
-      }
-   }
-}
-
-public enum State
-{
-   HANDSHAKE, STATUS, LOGIN, PLAY
+    private int GetIDFromRawData(byte[] rawData)
+    {
+        PacketReader packetReader = new PacketReader(rawData);
+        packetReader.ReadVarInt();
+        return packetReader.ReadVarInt().Value;
+    }
 }
